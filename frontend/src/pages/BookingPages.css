@@ -1,0 +1,207 @@
+.booking-page { min-height: 100vh; color: var(--ink); background: #f3f6f2; }
+.booking-page .public-vehicles-header nav { display: flex; flex-wrap: wrap; align-items: center; gap: clamp(10px, 1.6vw, 24px); }
+.booking-page .public-vehicles-header nav a { color: #596a5e; font-size: 0.84rem; font-weight: 700; }
+.booking-page .public-vehicles-header nav a:hover { color: #2b6940; }
+.booking-shell { width: min(100%, 1320px); margin: auto; padding: 38px clamp(18px, 5vw, 72px) 76px; }
+.booking-shell > .vehicle-kicker { margin-top: 20px; }
+.booking-shell > h1 { margin: 0 0 27px; color: #203328; font: 500 clamp(2.15rem, 4vw, 3.2rem)/1.08 var(--serif); letter-spacing: -.035em; }
+.booking-shell > h1 em,
+.booking-confirmation h1 em { color: #94723a; font-weight: 400; }
+.booking-grid { display: grid; grid-template-columns: minmax(280px, .75fr) minmax(0, 1.25fr); gap: 20px; align-items: start; }
+.booking-vehicle-card,
+.booking-form,
+.booking-list-card { padding: clamp(20px, 3vw, 30px); background: #fff; border: 1px solid #e0e8df; border-radius: 0.95rem; box-shadow: var(--shadow-soft); }
+.booking-page .booking-vehicle-card > img,
+.booking-page .booking-vehicle-card > .booking-vehicle-artwork { width: 100%; aspect-ratio: 4 / 3; margin-bottom: 20px; object-fit: cover; background: #e4ebe3; border-radius: 0.75rem; }
+.booking-vehicle-card > .booking-vehicle-artwork { display: block; }
+.booking-page .booking-vehicle-card h2,
+.booking-page .booking-list-card h2 { margin: 0 0 12px; color: #2d4032; font: 500 1.45rem/1.2 var(--serif); }
+.booking-page .booking-vehicle-card > p,
+.booking-page .booking-list-card > p { display: flex; align-items: flex-start; gap: 9px; color: #657369; font-size: 0.87rem; line-height: 1.7; }
+.booking-page .booking-vehicle-card > p svg,
+.booking-page .booking-list-card > p svg { flex: 0 0 auto; color: #96723a; }
+.booking-page .booking-return-note { padding: 12px 14px; color: #526457 !important; background: #eff5ed; border: 1px solid #e2ece0; border-radius: 0.6rem; }
+.booking-page .booking-form { display: grid; gap: 17px; }
+.booking-page .booking-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.booking-page .booking-form label { min-width: 0; display: grid; gap: 7px; color: #526257; font-size: 0.82rem; font-weight: 800; }
+.booking-page .booking-form input,
+.booking-page .booking-form select,
+.booking-page .booking-form textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  color: #2e4033;
+  background: #fbfcfa;
+  border: 1px solid #d5e0d5;
+  border-radius: 0.6rem;
+  font: inherit;
+  font-size: 0.88rem;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.booking-page .booking-form textarea { resize: vertical; }
+.booking-page .booking-form input:focus,
+.booking-page .booking-form select:focus,
+.booking-page .booking-form textarea:focus { outline: 0; border-color: #6b9474; box-shadow: 0 0 0 4px rgb(73 129 84 / 11%); }
+.booking-admin-actions input,
+.booking-admin-actions select,
+.booking-quotation-action input { width: 100%; min-height: 41px; padding: 9px 10px; color: #304136; background: #fff; border: 1px solid #d5e0d5; border-radius: 0.55rem; font: inherit; font-size: 0.84rem; }
+.booking-page .booking-info { margin: 0; padding: 13px 15px; color: #536458; background: #eff5ed; border: 1px solid #e2ece0; border-radius: 0.6rem; font-size: 0.84rem; line-height: 1.65; }
+.booking-page .booking-estimate { padding: 17px; background: linear-gradient(140deg, #f8faf6, #edf4eb); border: 1px solid #dce8da; border-radius: 0.75rem; }
+.booking-page .booking-estimate > div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; color: #637168; font-size: 0.87rem; }
+.booking-page .booking-estimate strong { color: #304136; text-align: right; }
+.booking-page .booking-estimate p { margin: 10px 0 0; color: #748176; font-size: 0.8rem; line-height: 1.6; }
+.booking-page .booking-payment-option { display: grid; gap: 6px; padding: 15px; background: #fbfaf6; border: 1px dashed #c8b991; border-radius: 0.65rem; }
+.booking-page .booking-payment-option strong { color: #48584b; font-size: 0.9rem; }
+.booking-page .booking-payment-option span { color: #77847a; font-size: 0.84rem; }
+.booking-page .booking-form > .vehicle-primary-button { width: 100%; }
+.booking-page .vehicle-primary-button,
+.booking-page .vehicle-secondary-button {
+  min-height: 49px;
+  padding: 0 17px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid transparent;
+  border-radius: 0.6rem;
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.booking-page .vehicle-primary-button { color: #fff; background: linear-gradient(110deg, #1d4930, #28603d); box-shadow: 0 5px 13px rgb(29 73 48 / 12%); }
+.booking-page .vehicle-primary-button:hover:not(:disabled) { transform: translateY(-2px); background: #2f7047; box-shadow: 0 9px 20px rgb(29 73 48 / 18%); }
+.booking-page .vehicle-secondary-button { color: #3d5945; background: #edf3ec; border-color: #dce8da; }
+.booking-page .vehicle-secondary-button:hover:not(:disabled) { background: #e2ede0; }
+.booking-page .vehicle-status { padding: 6px 10px; font-size: 0.74rem; }
+.booking-page .vehicle-kicker { color: #8d6e36; font-size: 0.7rem; }
+
+.booking-confirmation {
+  width: min(740px, calc(100% - 36px));
+  margin: 9vh auto;
+  padding: clamp(30px, 6vw, 66px);
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e0e8df;
+  border-radius: 1.1rem;
+  box-shadow: 0 24px 70px rgb(23 53 31 / 12%);
+}
+
+.booking-confirmation::after { content: ''; width: 240px; height: 240px; position: absolute; top: -125px; right: -80px; border: 1px solid #e4ece2; border-radius: 50%; box-shadow: 0 0 0 25px #f7faf6; pointer-events: none; }
+.booking-confirm-icon { width: 52px; height: 52px; display: grid; place-items: center; color: #46774e; background: #edf6ec; border: 1px solid #d9e9d7; border-radius: 50%; }
+.booking-confirmation h1 { margin: 0 0 18px; color: #203328; font: 500 clamp(2.2rem, 5vw, 3.2rem)/1.08 var(--serif); }
+.booking-confirmation > p:not(.vehicle-kicker) { color: #647168; font-size: 0.94rem; line-height: 1.8; }
+.booking-confirm-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.booking-confirm-actions a { text-decoration: none; }
+
+.booking-list { display: grid; gap: 15px; }
+.booking-list-card { min-width: 0; border-left: 4px solid #c9a765; transition: transform 180ms ease, box-shadow 180ms ease; }
+.booking-list-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-card); }
+.booking-list-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; }
+.booking-list-title .vehicle-kicker { margin-bottom: 5px; }
+.booking-list-title h2 { margin-bottom: 7px; }
+.booking-list-money { display: flex; flex-wrap: wrap; gap: 10px 22px; padding: 13px 0; color: #56665a; font-size: 0.86rem; }
+.booking-list-card > small { display: block; margin-top: 10px; color: #758177; font-size: 0.78rem; }
+
+.booking-admin-shell { width: min(100%, 1480px); margin: auto; padding: 34px clamp(20px, 4vw, 60px) 76px; }
+.vehicle-admin-page .booking-admin-shell .vehicle-page-heading { margin-bottom: 26px; }
+.booking-manual-panel { margin: 0 0 30px; padding: clamp(20px, 3vw, 30px); background: #fff; border: 1px solid #e1e9e1; border-radius: 0.95rem; box-shadow: var(--shadow-soft); }
+.booking-manual-panel h2,
+.booking-admin-toolbar h2 { margin: 0; color: #304136; font: 500 1.35rem/1.2 var(--serif); }
+.booking-manual-panel > p { margin: 7px 0 20px; color: #738076; font-size: 0.85rem; line-height: 1.6; }
+.vehicle-admin-page .booking-admin-form { display: grid; gap: 17px; padding: 0; border: 0; box-shadow: none; }
+.vehicle-admin-page .booking-admin-form .booking-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.vehicle-admin-page .booking-admin-form label { min-width: 0; display: grid; gap: 7px; color: #58675c; font-size: 0.78rem; font-weight: 800; }
+.vehicle-admin-page .booking-admin-form input,
+.vehicle-admin-page .booking-admin-form select,
+.vehicle-admin-page .booking-admin-form textarea { width: 100%; min-width: 0; min-height: 44px; padding: 9px 11px; color: #304136; background: #fbfcfa; border: 1px solid #d5e0d5; border-radius: 0.55rem; font: inherit; font-size: 0.84rem; }
+.vehicle-admin-page .booking-admin-form textarea { min-height: 82px; resize: vertical; }
+.vehicle-admin-page .booking-admin-form > .vehicle-primary-button { justify-self: end; min-width: 190px; min-height: 44px; font-size: 0.84rem; }
+.booking-admin-toolbar { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(260px, 1.4fr) minmax(180px, .7fr); align-items: end; gap: 14px; margin: 0 0 16px; }
+.booking-admin-toolbar label { min-width: 0; display: grid; gap: 7px; color: #58675c; font-size: 0.78rem; font-weight: 800; }
+.booking-admin-toolbar select,
+.booking-admin-toolbar input { width: 100%; min-width: 0; min-height: 43px; padding: 8px 11px; color: #304136; background: #fff; border: 1px solid #d5e0d5; border-radius: 0.55rem; font: inherit; font-size: 0.84rem; }
+.booking-admin-toolbar input { min-width: 0; }
+.booking-admin-toolbar h2 { align-self: center; }
+.vehicle-admin-page .booking-list { gap: 15px; }
+.vehicle-admin-page .booking-list-card { padding: clamp(19px, 2.5vw, 28px); background: #fff; border: 1px solid #e1e9e1; border-left: 4px solid #c9a765; border-radius: 0.9rem; box-shadow: var(--shadow-soft); }
+.vehicle-admin-page .booking-list-card > p { margin: 10px 0; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 7px; color: #647168; font-size: 0.84rem; line-height: 1.6; overflow-wrap: anywhere; }
+.vehicle-admin-page .booking-list-card > p svg { flex: 0 0 auto; color: #96723a; }
+.vehicle-admin-page .booking-list-title h2 { margin-bottom: 0; }
+.vehicle-admin-page .booking-list-title .vehicle-kicker { overflow-wrap: anywhere; }
+.vehicle-admin-page .booking-internal-notes label { font-size: 0.78rem; }
+.vehicle-admin-page .booking-internal-notes textarea { min-width: 0; font: inherit; font-size: 0.84rem; }
+.vehicle-admin-page .booking-admin-actions { align-items: center; }
+.vehicle-admin-page .booking-admin-actions small { font-size: 0.75rem; }
+.vehicle-admin-page .booking-admin-actions .vehicle-primary-button,
+.vehicle-admin-page .booking-admin-actions .vehicle-secondary-button { min-height: 40px; font-size: 0.77rem; }
+.vehicle-admin-page .booking-admin-actions input,
+.vehicle-admin-page .booking-admin-actions select,
+.vehicle-admin-page .booking-quotation-action input { min-height: 40px; font-size: 0.81rem; }
+.vehicle-admin-page .booking-history,
+.vehicle-admin-page .booking-details-toggle { font-size: 0.8rem; }
+.booking-admin-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 9px; padding-top: 13px; border-top: 1px solid #e9eee8; }
+.booking-admin-actions input,
+.booking-admin-actions select { width: auto; max-width: 210px; min-width: 135px; }
+.booking-admin-actions .vehicle-primary-button,
+.booking-admin-actions .vehicle-secondary-button { min-height: 40px; }
+.booking-admin-actions small { flex: 1 0 100%; color: #77847a; font-size: 0.74rem; }
+.booking-internal-notes { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 9px; margin: 0 0 12px; }
+.booking-internal-notes label { display: grid; gap: 6px; color: #58675c; font-size: 0.76rem; font-weight: 800; }
+.booking-internal-notes textarea { width: 100%; min-height: 54px; padding: 9px 10px; resize: vertical; color: #304136; background: #fff; border: 1px solid #d5e0d5; border-radius: 0.55rem; font: inherit; font-size: 0.82rem; }
+.booking-details-toggle { margin-top: 13px; padding: 5px 0; color: #356745; background: none; border: 0; font-size: 0.78rem; font-weight: 800; cursor: pointer; }
+.booking-detail-panel { margin-top: 9px; padding: 15px; background: #f7faf6; border: 1px solid #e5ece4; border-radius: 0.65rem; color: #718076; font-size: 0.78rem; line-height: 1.7; overflow-wrap: anywhere; }
+.booking-detail-panel h3 { margin: 8px 0; color: #4c5f50; font-size: 0.82rem; }
+.booking-detail-panel p { margin: 5px 0; }
+.booking-detail-panel section + section { margin-top: 14px; padding-top: 10px; border-top: 1px solid #e4ebe3; }
+.booking-quotation-action { display: flex; flex-wrap: wrap; align-items: end; gap: 9px; width: 100%; padding: 0 0 13px; }
+.booking-quotation-action label { flex: 1 1 200px; max-width: 310px; }
+.booking-history { margin-top: 14px; padding-top: 11px; border-top: 1px solid #e9eee8; color: #718076; font-size: 0.77rem; }
+.booking-history summary { cursor: pointer; color: #356745; font-weight: 800; }
+.booking-history p { line-height: 1.6; }
+
+@media (max-width: 920px) {
+  .booking-grid { grid-template-columns: minmax(240px, .72fr) minmax(0, 1.28fr); gap: 14px; }
+  .vehicle-admin-page .booking-admin-form .booking-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .booking-admin-toolbar { grid-template-columns: 1fr 1fr; align-items: end; }
+  .booking-admin-toolbar h2 { grid-column: 1 / -1; }
+  .booking-admin-toolbar input { min-width: 0; }
+  .booking-admin-actions input,
+  .booking-admin-actions select { flex: 1 1 130px; max-width: none; }
+}
+
+@media (max-width: 700px) {
+  .booking-page .public-vehicles-header nav { gap: 9px 12px; }
+  .booking-page .public-vehicles-header nav a { font-size: 0.76rem; }
+  .booking-page .public-vehicles-header nav:not(.is-open) { display: none; }
+  .booking-page .public-vehicles-header nav.is-open { display: grid; }
+  .booking-grid { grid-template-columns: 1fr; }
+  .booking-vehicle-card > img { aspect-ratio: 16 / 9; }
+  .booking-internal-notes { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 520px) {
+  .booking-shell { padding: 25px 16px 48px; }
+  .booking-form-grid,
+  .vehicle-admin-page .booking-admin-form .booking-form-grid { grid-template-columns: 1fr; }
+  .vehicle-admin-page .booking-admin-form > .vehicle-primary-button { width: 100%; }
+  .booking-admin-toolbar { grid-template-columns: 1fr; }
+  .booking-admin-toolbar h2 { grid-column: auto; }
+  .booking-list-title { align-items: flex-start; flex-direction: column; }
+  .booking-page .public-vehicles-header { padding: 0 14px; }
+  .booking-page .public-vehicles-header .brand-name strong { font-size: 0.7rem; }
+  .booking-page .public-vehicles-header nav { gap: 7px 10px; }
+  .booking-admin-shell { padding: 23px 14px 48px; }
+  .booking-manual-panel { padding: 17px; }
+  .booking-admin-actions { align-items: stretch; }
+  .booking-admin-actions input,
+  .booking-admin-actions select,
+  .booking-admin-actions .vehicle-primary-button,
+  .booking-admin-actions .vehicle-secondary-button { width: 100%; max-width: none; }
+  .vehicle-admin-page .booking-admin-form > .vehicle-primary-button { justify-self: stretch; }
+  .booking-confirmation { width: calc(100% - 28px); margin: 6vh auto; padding: 28px 22px; }
+}
