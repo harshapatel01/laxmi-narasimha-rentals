@@ -64,7 +64,7 @@ def _set_admin_cookies(response: Response, token: str, csrf_token: str, max_age:
         max_age=max_age,
         httponly=True,
         secure=settings.cookies_are_secure,
-        samesite="strict",
+        samesite="none",
         path="/",
     )
     response.set_cookie(
@@ -73,7 +73,7 @@ def _set_admin_cookies(response: Response, token: str, csrf_token: str, max_age:
         max_age=max_age,
         httponly=False,
         secure=settings.cookies_are_secure,
-        samesite="strict",
+        samesite="none",
         path="/",
     )
 
@@ -260,8 +260,8 @@ def admin_logout(
         )
     )
     db.commit()
-    response.delete_cookie(ADMIN_SESSION_COOKIE, path="/", secure=get_settings().cookies_are_secure, samesite="strict")
-    response.delete_cookie(ADMIN_CSRF_COOKIE, path="/", secure=get_settings().cookies_are_secure, samesite="strict")
+    response.delete_cookie(ADMIN_SESSION_COOKIE, path="/", secure=get_settings().cookies_are_secure, samesite="none")
+    response.delete_cookie(ADMIN_CSRF_COOKIE, path="/", secure=get_settings().cookies_are_secure, samesite="none")
     return MessageResponse(message="You have been signed out.")
 
 

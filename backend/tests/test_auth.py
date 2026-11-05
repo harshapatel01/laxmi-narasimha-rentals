@@ -98,7 +98,7 @@ def test_customer_registration_normalizes_mobile_and_creates_secure_session(clie
     assert result["last_name"] == "Customer"
     assert "lnr_customer_session" in response.cookies
     assert "HttpOnly" in response.headers["set-cookie"]
-    assert "SameSite=strict" in response.headers["set-cookie"]
+    assert "SameSite=none" in response.headers["set-cookie"]
     assert response.headers["cache-control"].startswith("private, no-store")
     current_customer = client.get("/api/v1/auth/me")
     assert current_customer.json()["id"] == result["id"]
@@ -125,10 +125,10 @@ def test_customer_session_cookies_are_secure_outside_local_development(
     csrf_cookie = next(header for header in cookie_headers if header.startswith("lnr_customer_csrf="))
     assert "secure" in session_cookie.lower()
     assert "httponly" in session_cookie.lower()
-    assert "samesite=strict" in session_cookie.lower()
+    assert "samesite=none" in session_cookie.lower()
     assert "secure" in csrf_cookie.lower()
     assert "httponly" not in csrf_cookie.lower()
-    assert "samesite=strict" in csrf_cookie.lower()
+    assert "samesite=none" in csrf_cookie.lower()
 
 
 def test_customer_registration_requires_valid_mobile_and_matching_password(client):
@@ -894,6 +894,30 @@ def test_production_always_requires_mfa_even_if_setting_is_false(
         session = db.scalar(select(AuthSession).where(AuthSession.admin_id == admin.id))
         assert session is not None
         assert session.is_mfa_verified is False
+
+
+def test_admin_session_cookies_support_cross_site_requests_in_production(
+    client, auth_test_db, monkeypatch
+):
+    admin, _ = create_admin(auth_test_db)
+    monkeypatch.setattr(get_settings(), "app_env", "production")
+    monkeypatch.setattr(get_settings(), "secure_cookies", False)
+
+    response = client.post(
+        "/api/v1/admin/auth/login",
+        json={"username_or_email": admin.username, "password": "a-secure-local-test-password"},
+    )
+
+    assert response.status_code == 200
+    cookie_headers = response.headers.get_list("set-cookie")
+    session_cookie = next(header for header in cookie_headers if header.startswith("lnr_admin_session="))
+    csrf_cookie = next(header for header in cookie_headers if header.startswith("lnr_admin_csrf="))
+    assert "secure" in session_cookie.lower()
+    assert "httponly" in session_cookie.lower()
+    assert "samesite=none" in session_cookie.lower()
+    assert "secure" in csrf_cookie.lower()
+    assert "httponly" not in csrf_cookie.lower()
+    assert "samesite=none" in csrf_cookie.lower()
 
 
 def test_customer_cannot_access_admin_endpoints(client):
