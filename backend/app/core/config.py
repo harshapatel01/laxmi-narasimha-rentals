@@ -62,6 +62,7 @@ class Settings(BaseSettings):
 
     def requires_admin_mfa(self, client_host: str | None) -> bool:
         return self.admin_mfa_required
+    
 
     @property
     def auth_key(self) -> bytes:

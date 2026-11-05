@@ -12,4 +12,9 @@ dist/
 frontend/.vite/
 *.log
 .DS_Store
+<<<<<<< HEAD
 .vscode/
+=======
+
+.vscode/
+>>>>>>> origin/master
