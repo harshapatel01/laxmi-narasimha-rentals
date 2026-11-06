@@ -1,4 +1,4 @@
-import { apiErrorMessage, csrfTokenForRequest } from './requestUtils'
+import { apiErrorMessage, csrfTokenForRequest, updateCsrfTokenFromResponse } from './requestUtils'
 
 export interface ApiHealth {
   status: string
@@ -45,6 +45,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     headers,
     credentials: 'include',
   })
+  updateCsrfTokenFromResponse(path, response)
   const body: unknown = await response.json().catch(() => undefined)
   if (!response.ok) {
     throw new ApiError(apiErrorMessage(body, response.status), response.status)

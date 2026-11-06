@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.api.v1.dependencies import (
     CUSTOMER_CSRF_COOKIE,
     CUSTOMER_SESSION_COOKIE,
+    expose_csrf_token,
     get_customer_session,
     get_customer_session_with_csrf,
 )
@@ -58,6 +59,7 @@ def _client_ip(request: Request) -> str:
 
 def _set_session_cookies(response: Response, token: str, csrf_token: str, max_age: int) -> None:
     settings = get_settings()
+    response.headers["X-CSRF-Token"] = csrf_token
     response.set_cookie(
         CUSTOMER_SESSION_COOKIE,
         token,
@@ -599,6 +601,8 @@ def customer_logout(
 
 @router.get("/me", response_model=CustomerResponse)
 def customer_me(
+    request: Request,
+    response: Response,
     auth_session: AuthSession = Depends(get_customer_session),
     db: Session = Depends(get_db),
 ) -> CustomerResponse:
@@ -606,6 +610,7 @@ def customer_me(
     if user is None:
         raise HTTPException(status_code=401, detail="Session expired or invalid.")
     profile = db.scalar(select(CustomerProfile).where(CustomerProfile.user_id == user.id))
+    expose_csrf_token(request, response, auth_session)
     return _customer_response(user, profile)
 
 

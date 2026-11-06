@@ -58,7 +58,12 @@ def client(auth_test_db):
         yield test_client
 
 
-def register_customer(client: TestClient, **overrides):
+def register_customer(
+    client: TestClient,
+    *,
+    request_headers: dict[str, str] | None = None,
+    **overrides,
+):
     payload = {
         "full_name": "Test Customer",
         "email": "customer@gmail.com",
@@ -67,7 +72,7 @@ def register_customer(client: TestClient, **overrides):
         "confirm_password": "a-customer-password-123",
     }
     payload.update(overrides)
-    return client.post("/api/v1/auth/register", json=payload)
+    return client.post("/api/v1/auth/register", json=payload, headers=request_headers)
 
 
 def configure_reset_smtp(settings, monkeypatch):
@@ -87,7 +92,10 @@ def request_password_reset(client: TestClient, email: str):
 
 
 def test_customer_registration_normalizes_mobile_and_creates_secure_session(client, auth_test_db):
-    response = register_customer(client)
+    response = register_customer(
+        client,
+        request_headers={"Origin": get_settings().frontend_origin},
+    )
 
     assert response.status_code == 201
     result = response.json()
@@ -99,9 +107,16 @@ def test_customer_registration_normalizes_mobile_and_creates_secure_session(clie
     assert "lnr_customer_session" in response.cookies
     assert "HttpOnly" in response.headers["set-cookie"]
     assert "SameSite=none" in response.headers["set-cookie"]
+    csrf_token = response.cookies["lnr_customer_csrf"]
+    assert response.headers["x-csrf-token"] == csrf_token
+    assert response.headers["access-control-expose-headers"] == "X-CSRF-Token"
     assert response.headers["cache-control"].startswith("private, no-store")
-    current_customer = client.get("/api/v1/auth/me")
+    current_customer = client.get(
+        "/api/v1/auth/me",
+        headers={"Origin": get_settings().frontend_origin},
+    )
     assert current_customer.json()["id"] == result["id"]
+    assert current_customer.headers["x-csrf-token"] == csrf_token
     assert current_customer.headers["cache-control"].startswith("private, no-store")
     with auth_test_db() as db:
         user = db.scalar(select(User).where(User.email == "customer@gmail.com"))
@@ -129,6 +144,16 @@ def test_customer_session_cookies_are_secure_outside_local_development(
     assert "secure" in csrf_cookie.lower()
     assert "httponly" not in csrf_cookie.lower()
     assert "samesite=none" in csrf_cookie.lower()
+
+
+def test_customer_session_check_does_not_expose_a_mismatched_csrf_cookie(client):
+    assert register_customer(client).status_code == 201
+    client.cookies.set("lnr_customer_csrf", "different-session-token")
+
+    response = client.get("/api/v1/auth/me")
+
+    assert response.status_code == 200
+    assert "x-csrf-token" not in response.headers
 
 
 def test_customer_registration_requires_valid_mobile_and_matching_password(client):
@@ -779,9 +804,10 @@ def test_admin_login_requires_password_and_mfa(client, auth_test_db):
     )
     assert login.status_code == 200
     assert login.json()["mfa_required"] is True
+    csrf = client.cookies.get("lnr_admin_csrf")
+    assert login.headers["x-csrf-token"] == csrf
     assert client.get("/api/v1/admin/dashboard").status_code == 401
 
-    csrf = client.cookies.get("lnr_admin_csrf")
     bad_mfa = client.post(
         "/api/v1/admin/auth/mfa/verify",
         json={"code": "000000"},
@@ -796,7 +822,10 @@ def test_admin_login_requires_password_and_mfa(client, auth_test_db):
 
     assert verified.status_code == 200
     assert verified.json()["username"] == admin.username
-    assert client.get("/api/v1/admin/auth/me").status_code == 200
+    assert verified.headers["x-csrf-token"] == csrf
+    current_admin = client.get("/api/v1/admin/auth/me")
+    assert current_admin.status_code == 200
+    assert current_admin.headers["x-csrf-token"] == csrf
     assert client.get("/api/v1/admin/dashboard").status_code == 200
 
 

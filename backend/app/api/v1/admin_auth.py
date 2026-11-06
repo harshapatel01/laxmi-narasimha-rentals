@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.api.v1.dependencies import (
     ADMIN_SESSION_COOKIE,
     ADMIN_CSRF_COOKIE,
+    expose_csrf_token,
     get_admin_challenge_with_csrf,
     get_admin_session,
     get_admin_session_with_csrf,
@@ -58,6 +59,7 @@ def _client_ip(request: Request) -> str:
 
 def _set_admin_cookies(response: Response, token: str, csrf_token: str, max_age: int) -> None:
     settings = get_settings()
+    response.headers["X-CSRF-Token"] = csrf_token
     response.set_cookie(
         ADMIN_SESSION_COOKIE,
         token,
@@ -267,12 +269,15 @@ def admin_logout(
 
 @auth_router.get("/me", response_model=AdminResponse)
 def admin_me(
+    request: Request,
+    response: Response,
     auth_session: AuthSession = Depends(get_admin_session),
     db: Session = Depends(get_db),
 ) -> AdminResponse:
     admin = db.get(AdminAccount, auth_session.admin_id)
     if admin is None:
         raise HTTPException(status_code=401, detail="Session expired or invalid.")
+    expose_csrf_token(request, response, auth_session)
     return AdminResponse(id=str(admin.id), username=admin.username, email=admin.email, role=admin.role)
 
 

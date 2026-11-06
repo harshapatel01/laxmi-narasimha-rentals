@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { apiErrorMessage, csrfTokenForRequest } from './requestUtils'
+import {
+  apiErrorMessage,
+  clearCsrfTokenForRequest,
+  csrfTokenForRequest,
+  updateCsrfTokenFromResponse,
+} from './requestUtils'
 
 describe('csrfTokenForRequest', () => {
   it('uses the admin CSRF cookie for admin mutations when both sessions exist', () => {
@@ -20,6 +25,23 @@ describe('csrfTokenForRequest', () => {
 
   it('decodes an encoded CSRF cookie value', () => {
     expect(csrfTokenForRequest('/admin/cities', 'lnr_admin_csrf=token%2Bvalue')).toBe('token+value')
+  })
+
+  it('keeps customer and admin tokens separate and prefers tokens returned by the API', () => {
+    updateCsrfTokenFromResponse('/auth/me', new Response(null, {
+      status: 200,
+      headers: { 'X-CSRF-Token': 'customer-header-token' },
+    }))
+    updateCsrfTokenFromResponse('/admin/auth/me', new Response(null, {
+      status: 200,
+      headers: { 'X-CSRF-Token': 'admin-header-token' },
+    }))
+
+    expect(csrfTokenForRequest('/bookings', '')).toBe('customer-header-token')
+    expect(csrfTokenForRequest('/admin/bookings', '')).toBe('admin-header-token')
+
+    clearCsrfTokenForRequest('/auth/me')
+    clearCsrfTokenForRequest('/admin/auth/me')
   })
 })
 

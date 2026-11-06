@@ -2,7 +2,7 @@ import hashlib
 import hmac
 from datetime import UTC, datetime
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -103,6 +103,16 @@ def require_csrf(request: Request, auth_session: AuthSession) -> None:
         or not hmac.compare_digest(expected_hash, auth_session.csrf_token_hash)
     ):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF validation failed.")
+
+
+def expose_csrf_token(request: Request, response: Response, auth_session: AuthSession) -> None:
+    csrf_cookie = ADMIN_CSRF_COOKIE if auth_session.admin_id is not None else CUSTOMER_CSRF_COOKIE
+    cookie_value = request.cookies.get(csrf_cookie, "")
+    if cookie_value and hmac.compare_digest(
+        hashlib.sha256(cookie_value.encode("utf-8")).hexdigest(),
+        auth_session.csrf_token_hash,
+    ):
+        response.headers["X-CSRF-Token"] = cookie_value
 
 
 def get_customer_session_with_csrf(

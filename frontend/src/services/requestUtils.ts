@@ -1,10 +1,22 @@
+const csrfTokens: Partial<Record<'customer' | 'admin', string>> = {}
+
+function csrfScopeForRequest(path: string): 'customer' | 'admin' {
+  return path.replace(/^\//, '').startsWith('admin/') ? 'admin' : 'customer'
+}
+
+function csrfCookieForScope(scope: 'customer' | 'admin'): string {
+  return scope === 'admin' ? 'lnr_admin_csrf' : 'lnr_customer_csrf'
+}
+
 export function csrfTokenForRequest(
   path: string,
-  cookieHeader: string,
+  cookieHeader = '',
 ): string | undefined {
-  const cookieName = path.replace(/^\//, '').startsWith('admin/')
-    ? 'lnr_admin_csrf'
-    : 'lnr_customer_csrf'
+  const scope = csrfScopeForRequest(path)
+  const cachedToken = csrfTokens[scope]
+  if (cachedToken) return cachedToken
+
+  const cookieName = csrfCookieForScope(scope)
   const cookie = cookieHeader
     .split(';')
     .map((part) => part.trim())
@@ -16,6 +28,29 @@ export function csrfTokenForRequest(
   } catch {
     return undefined
   }
+}
+
+export function updateCsrfTokenFromResponse(path: string, response: Response): void {
+  const scope = csrfScopeForRequest(path)
+  const token = response.headers.get('X-CSRF-Token')
+  if (response.ok && token) {
+    csrfTokens[scope] = token
+    return
+  }
+
+  const normalizedPath = path.replace(/^\//, '').split('?')[0]
+  const sessionCheckPath = `${scope === 'admin' ? 'admin/' : ''}auth/me`
+  const logoutPath = `${scope === 'admin' ? 'admin/' : ''}auth/logout`
+  if (
+    normalizedPath === sessionCheckPath
+    || (normalizedPath === logoutPath && response.ok)
+  ) {
+    delete csrfTokens[scope]
+  }
+}
+
+export function clearCsrfTokenForRequest(path: string): void {
+  delete csrfTokens[csrfScopeForRequest(path)]
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
