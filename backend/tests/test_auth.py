@@ -422,8 +422,12 @@ def test_password_reset_smtp_failure_is_generic_and_revokes_undelivered_token(
     monkeypatch.setattr(auth_routes, "get_session_factory", lambda: auth_test_db)
     registered = register_customer(client)
 
-    def fail_send(_destination: str, _raw_token: str):
-        raise smtplib.SMTPAuthenticationError(535, b"authentication failed")
+    def fail_send(destination: str, raw_token: str):
+        error = (
+            f"authentication failed for {destination}; "
+            f"password={settings.smtp_password}; token={raw_token}"
+        )
+        raise smtplib.SMTPAuthenticationError(535, error.encode())
 
     monkeypatch.setattr(auth_routes, "_send_password_reset_email", fail_send)
     response = request_password_reset(client, "customer@gmail.com")
@@ -434,8 +438,13 @@ def test_password_reset_smtp_failure_is_generic_and_revokes_undelivered_token(
     assert unknown_response.status_code == response.status_code
     assert unknown_response.json() == response.json()
     assert "Password reset email delivery failed" in caplog.text
+    assert "SMTPAuthenticationError" in caplog.text
+    assert "SMTP server rejected authentication." in caplog.text
+    assert settings.smtp_username not in caplog.text
+    assert settings.smtp_password not in caplog.text
     assert "customer@gmail.com" not in caplog.text
     assert "authentication failed" not in caplog.text
+    assert "token=" not in caplog.text
     with auth_test_db() as db:
         reset = db.scalar(select(CustomerPasswordResetToken))
         failure = db.scalar(
@@ -559,6 +568,58 @@ def test_brevo_smtp_transport_uses_separate_smtp_credentials(monkeypatch):
     assert observed["starttls"] is True
     assert observed["login"] == ("smtp-user@example.test", "test-only-smtp-password")
     assert observed["message"]["To"] == "customer@example.test"
+
+
+def test_password_reset_smtp_diagnostics_do_not_log_sensitive_values(
+    client, auth_test_db, monkeypatch, caplog
+):
+    settings = get_settings()
+    configure_reset_smtp(settings, monkeypatch)
+    monkeypatch.setattr(settings, "smtp_username", "smtp-credential-secret")
+    monkeypatch.setattr(settings, "smtp_password", "smtp-password-secret")
+    monkeypatch.setattr(settings, "smtp_from_email", "sender-private@example.test")
+    monkeypatch.setattr(auth_routes, "get_session_factory", lambda: auth_test_db)
+    sent_messages = []
+
+    class FakeSMTP:
+        def __init__(self, _host, _port, timeout):
+            assert timeout == 10
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def starttls(self):
+            return None
+
+        def login(self, _username, _password):
+            return None
+
+        def send_message(self, message):
+            sent_messages.append(message)
+
+    monkeypatch.setattr(auth_routes.smtplib, "SMTP", FakeSMTP)
+    caplog.set_level("INFO", logger=auth_routes.__name__)
+    assert register_customer(client).status_code == 201
+
+    response = request_password_reset(client, "customer@gmail.com")
+
+    assert response.status_code == 202
+    assert len(sent_messages) == 1
+    body = sent_messages[0].get_content()
+    reset_token = body.split("token=", 1)[1].split()[0]
+    assert "Password reset SMTP configuration complete: True" in caplog.text
+    assert "Password reset email delivery background task started." in caplog.text
+    assert "Password reset SMTP connection succeeded." in caplog.text
+    assert "Password reset SMTP authentication succeeded." in caplog.text
+    assert "Password reset email accepted by SMTP server." in caplog.text
+    assert "smtp-credential-secret" not in caplog.text
+    assert "smtp-password-secret" not in caplog.text
+    assert "sender-private@example.test" not in caplog.text
+    assert "customer@gmail.com" not in caplog.text
+    assert reset_token not in caplog.text
 
 
 

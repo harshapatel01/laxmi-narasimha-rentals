@@ -164,6 +164,24 @@ def _smtp_is_configured() -> bool:
     )
 
 
+def _sanitized_smtp_error_message(exc: Exception) -> str:
+    if isinstance(exc, smtplib.SMTPAuthenticationError):
+        return "SMTP server rejected authentication."
+    if isinstance(exc, smtplib.SMTPConnectError):
+        return "SMTP server rejected the connection."
+    if isinstance(exc, smtplib.SMTPServerDisconnected):
+        return "SMTP server disconnected."
+    if isinstance(exc, smtplib.SMTPResponseException):
+        return "SMTP server returned an error response."
+    if isinstance(exc, smtplib.SMTPException):
+        return "SMTP delivery failed."
+    if isinstance(exc, OSError):
+        return "Network error during SMTP delivery."
+    if isinstance(exc, RuntimeError):
+        return "SMTP delivery is not configured."
+    return "Unexpected SMTP delivery error."
+
+
 def _send_password_reset_email(destination: str, raw_token: str) -> None:
     settings = get_settings()
     if not _smtp_is_configured():
@@ -183,11 +201,14 @@ def _send_password_reset_email(destination: str, raw_token: str) -> None:
         if settings.smtp_use_ssl
         else smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10)
     ) as server:
+        logger.info("Password reset SMTP connection succeeded.")
         if not settings.smtp_use_ssl:
             server.starttls()
         if settings.smtp_username and settings.smtp_password:
             server.login(settings.smtp_username, settings.smtp_password)
+            logger.info("Password reset SMTP authentication succeeded.")
         server.send_message(message)
+        logger.info("Password reset email accepted by SMTP server.")
 
 
 def _deliver_password_reset_email(
@@ -197,6 +218,7 @@ def _deliver_password_reset_email(
     raw_token: str,
     request_ip: str,
 ) -> None:
+    logger.info("Password reset email delivery background task started.")
     try:
         _send_password_reset_email(destination, raw_token)
     except (OSError, smtplib.SMTPException, RuntimeError) as exc:
@@ -217,8 +239,9 @@ def _deliver_password_reset_email(
             )
             db.commit()
         logger.warning(
-            "Password reset email delivery failed (error_type=%s).",
+            "Password reset email delivery failed (error_type=%s, error=%s).",
             type(exc).__name__,
+            _sanitized_smtp_error_message(exc),
         )
         return
 
@@ -486,7 +509,9 @@ def request_password_reset(
     )
     db.commit()
 
-    if not _smtp_is_configured():
+    smtp_configured = _smtp_is_configured()
+    logger.info("Password reset SMTP configuration complete: %s", smtp_configured)
+    if not smtp_configured:
         db.add(
             AuthAuditLog(
                 action="customer_password_reset_delivery_failed",
