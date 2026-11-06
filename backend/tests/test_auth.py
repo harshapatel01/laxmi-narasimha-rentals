@@ -565,6 +565,7 @@ def test_brevo_smtp_transport_uses_separate_smtp_credentials(monkeypatch):
 
     assert observed["host"] == "smtp.example.test"
     assert observed["port"] == 587
+    assert observed["timeout"] == 30
     assert observed["starttls"] is True
     assert observed["login"] == ("smtp-user@example.test", "test-only-smtp-password")
     assert observed["message"]["To"] == "customer@example.test"
@@ -583,7 +584,7 @@ def test_password_reset_smtp_diagnostics_do_not_log_sensitive_values(
 
     class FakeSMTP:
         def __init__(self, _host, _port, timeout):
-            assert timeout == 10
+            assert timeout == 30
 
         def __enter__(self):
             return self

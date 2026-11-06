@@ -197,9 +197,9 @@ def _send_password_reset_email(destination: str, raw_token: str) -> None:
         f"{reset_url}\n\nIf you did not request this, you can ignore this email."
     )
     with (
-        smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=10)
+        smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=30)
         if settings.smtp_use_ssl
-        else smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10)
+        else smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30)
     ) as server:
         logger.info("Password reset SMTP connection succeeded.")
         if not settings.smtp_use_ssl:
