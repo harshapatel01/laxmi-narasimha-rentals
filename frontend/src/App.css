@@ -549,7 +549,8 @@
 
 @media (max-width: 1120px) {
   .site-header { padding-inline: 24px; }
-  .main-nav { gap: 18px; }
+  .site-header { flex-wrap: wrap; }
+  .main-nav { order: 3; width: 100%; }
   .header-actions { gap: 10px; }
   .hero { padding-inline: 30px; gap: 30px; }
   .hero-bottom-note { left: 30px; }
@@ -561,6 +562,12 @@
   .featured-section { padding-inline: 24px; }
   .promise-section { grid-template-columns: 50px minmax(230px, 0.9fr) minmax(210px, 1fr); }
   .promise-section > .text-link { grid-column: 2 / 4; }
+}
+
+@media (min-width: 921px) and (max-width: 1120px) {
+  .main-nav { display: none; }
+  .main-nav.is-open { display: flex; flex-wrap: wrap; gap: 6px 17px; padding: 8px 0 2px; }
+  .mobile-menu-button { display: grid; place-items: center; padding: 7px; }
 }
 
 @media (max-width: 920px) {
@@ -603,6 +610,7 @@
   .header-cta { display: none; }
   .city-trigger { gap: 5px; font-size: 0.8125rem; }
   .mobile-menu-button { display: grid; place-items: center; padding: 7px; }
+  .mobile-menu-button { width: 44px; height: 44px; }
   .hero { min-height: auto; padding: 39px 20px 49px; display: flex; flex-direction: column; align-items: stretch; gap: 22px; }
   .hero-copy { padding: 0; }
   .eyebrow,
@@ -685,12 +693,27 @@
   .footer-top > p { font-size: 0.9375rem; }
   .footer-links { width: 100%; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
   .footer-bottom { min-height: 58px; flex-wrap: wrap; gap: 5px 13px; padding: 11px 0; font-size: 0.6875rem; }
+  .announcement { font-size: max(0.75rem, 12px); }
+  .eyebrow,
+  .section-kicker,
+  .search-field label,
+  .intro-strip > span { font-size: max(0.75rem, 12px); }
+  .trust-caption,
+  .hero-float-card small { font-size: max(0.75rem, 12px); }
+  .city-trigger { min-height: 44px; }
+  .main-nav a,
+  .main-nav .home-account-link { min-height: 44px; display: inline-flex; align-items: center; }
+  .button,
+  .text-link { min-height: 44px; }
 }
 
 @media (max-width: 380px) {
   .category-grid { grid-template-columns: 1fr; }
   .category-visual { height: 205px; }
-  .hero-fleet-label { font-size: 0.5rem; }
+  .hero-fleet-label { font-size: 0.6875rem; }
+  .search-panel { grid-template-columns: 1fr; }
+  .search-intro,
+  .search-button { grid-column: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

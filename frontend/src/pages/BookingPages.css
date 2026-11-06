@@ -182,6 +182,15 @@
   .booking-grid { grid-template-columns: 1fr; }
   .booking-vehicle-card > img { aspect-ratio: 16 / 9; }
   .booking-internal-notes { grid-template-columns: 1fr; }
+  .booking-page .booking-form input,
+  .booking-page .booking-form select,
+  .booking-page .booking-form textarea { min-height: 48px; }
+  .booking-page .booking-form > .vehicle-primary-button,
+  .booking-page .vehicle-secondary-button { min-height: 48px; }
+  .booking-list-card .vehicle-secondary-button { min-height: 44px; }
+  .booking-page .vehicle-kicker,
+  .booking-admin-toolbar label,
+  .vehicle-admin-page .booking-admin-form label { font-size: 0.75rem; }
 }
 
 @media (max-width: 520px) {
@@ -204,4 +213,11 @@
   .booking-admin-actions .vehicle-secondary-button { width: 100%; max-width: none; }
   .vehicle-admin-page .booking-admin-form > .vehicle-primary-button { justify-self: stretch; }
   .booking-confirmation { width: calc(100% - 28px); margin: 6vh auto; padding: 28px 22px; }
+  .booking-page .booking-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .booking-admin-actions .vehicle-primary-button,
+  .booking-admin-actions .vehicle-secondary-button { min-height: 44px; }
+  .booking-page .booking-estimate > div { align-items: flex-start; flex-direction: column; gap: 3px; }
+  .booking-page .booking-estimate strong { text-align: left; }
+  .booking-confirm-actions > a,
+  .booking-confirm-actions > button { min-height: 44px; }
 }

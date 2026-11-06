@@ -217,14 +217,14 @@ function AdminLayout({ children, title, description, active }: {
         <Link to="/" className="vehicle-admin-back"><ArrowLeft size={15} /> Public site</Link>
       </header>
       <div className="vehicle-admin-shell">
-        <aside className="vehicle-admin-sidebar" aria-label="Admin navigation">
+        <nav className="vehicle-admin-sidebar" aria-label="Admin navigation">
           <div className="sidebar-label">MANAGEMENT</div>
           {links.map(({ to, label }) => (
-            <Link key={to} to={to} className={active === to ? 'admin-nav-link active' : 'admin-nav-link'}>
+            <Link key={to} to={to} aria-current={active === to ? 'page' : undefined} className={active === to ? 'admin-nav-link active' : 'admin-nav-link'}>
               {label}
             </Link>
           ))}
-        </aside>
+        </nav>
         <section className="vehicle-admin-content">
           <div className="vehicle-page-heading">
             <div><p className="vehicle-kicker">ADMIN WORKSPACE</p><h1>{title}</h1><p>{description}</p></div>
@@ -393,14 +393,14 @@ export function AdminVehicleListPage() {
             <tbody>
               {vehicles.map((vehicle) => (
                 <tr key={vehicle.id}>
-                  <td><div className="vehicle-table-name">
+                  <td data-label="Vehicle"><div className="vehicle-table-name">
                     {vehicle.images.find((image) => image.is_primary) && <img src={apiAssetUrl(vehicle.images.find((image) => image.is_primary)!.image_path)} alt="" />}
                     <span><strong>{vehicle.brand} {vehicle.model}</strong><small>{vehicle.vehicle_code} · {vehicle.registration_number}</small></span>
                   </div></td>
-                  <td>{vehicle.city_name}</td><td>{vehicle.category_name}</td>
-                  <td>{vehicle.daily_rental_enabled ? `₹${vehicle.daily_base_price}/day` : 'Custom pricing'}</td>
-                  <td><span className={`vehicle-status ${vehicle.availability_status}`}>{!vehicle.is_active ? 'deleted' : vehicle.availability_status === 'inactive' ? 'deactivated' : vehicle.availability_status}</span>{!vehicle.is_active && <small className="inactive-label">Archived</small>}</td>
-                  <td><div className="table-actions">
+                  <td data-label="City">{vehicle.city_name}</td><td data-label="Category">{vehicle.category_name}</td>
+                  <td data-label="Pricing">{vehicle.daily_rental_enabled ? `₹${vehicle.daily_base_price}/day` : 'Custom pricing'}</td>
+                  <td data-label="Status"><span className={`vehicle-status ${vehicle.availability_status}`}>{!vehicle.is_active ? 'deleted' : vehicle.availability_status === 'inactive' ? 'deactivated' : vehicle.availability_status}</span>{!vehicle.is_active && <small className="inactive-label">Archived</small>}</td>
+                  <td data-label="Actions"><div className="table-actions">
                     <button type="button" className="table-action" onClick={() => navigate(`/admin/vehicles/${vehicle.id}/edit`)}>Edit</button>
                     {vehicle.is_active && vehicle.availability_status !== 'inactive' && <button type="button" className="table-action danger" onClick={() => {
                       setVehicleActionError('')
@@ -596,11 +596,11 @@ export function AdminCustomersPage() {
             <tbody>
               {customers.map((customer) => (
                 <tr key={customer.id}>
-                  <td><span className="customer-identity"><strong>{customer.full_name || 'Name not provided'}</strong><small>{customer.email || 'No email set'}</small></span></td>
-                  <td>{customer.mobile}</td>
-                  <td><span className={`customer-status ${customer.status}`}>{customer.status === 'active' ? 'Active' : customer.status === 'blocked' ? 'Blocked' : customer.status === 'deleted' ? 'Deleted' : 'Deactivated'}</span></td>
-                  <td>{new Date(customer.created_at).toLocaleDateString()}</td>
-                  <td><div className="table-actions">
+                  <td data-label="Customer"><span className="customer-identity"><strong>{customer.full_name || 'Name not provided'}</strong><small>{customer.email || 'No email set'}</small></span></td>
+                  <td data-label="Mobile">{customer.mobile}</td>
+                  <td data-label="Status"><span className={`customer-status ${customer.status}`}>{customer.status === 'active' ? 'Active' : customer.status === 'blocked' ? 'Blocked' : customer.status === 'deleted' ? 'Deleted' : 'Deactivated'}</span></td>
+                  <td data-label="Registered">{new Date(customer.created_at).toLocaleDateString()}</td>
+                  <td data-label="Actions"><div className="table-actions">
                     <button type="button" className="table-action" onClick={() => void showBookingHistory(customer)}>
                       {historyCustomerId === customer.id ? 'Hide bookings' : 'Booking history'}
                     </button>
