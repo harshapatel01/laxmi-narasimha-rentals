@@ -32,12 +32,6 @@ class Settings(BaseSettings):
     password_reset_ip_window_minutes: int = Field(default=15, ge=1, le=1440)
     password_reset_email_limit: int = Field(default=3, ge=1, le=20)
     password_reset_email_window_minutes: int = Field(default=60, ge=1, le=1440)
-    smtp_host: str | None = None
-    smtp_port: int = Field(default=587, ge=1, le=65535)
-    smtp_username: str | None = None
-    smtp_password: str | None = None
-    smtp_from_email: str | None = None
-    smtp_use_ssl: bool = False
     brevo_api_key: str | None = None
     brevo_sender_email: str | None = None
     brevo_sender_name: str | None = None

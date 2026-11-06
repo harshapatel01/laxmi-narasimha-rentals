@@ -1,9 +1,9 @@
 import hashlib
+import html
 import logging
 import secrets
-import smtplib
-from email.message import EmailMessage
 from datetime import UTC, datetime, timedelta
+from urllib.error import HTTPError, URLError
 from uuid import UUID
 
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
@@ -43,6 +43,7 @@ from app.services.security import (
     new_session_tokens,
     password_hasher,
 )
+from app.services.brevo_email import send_brevo_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["customer authentication"])
@@ -154,61 +155,54 @@ def _as_utc(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
-def _smtp_is_configured() -> bool:
+def _brevo_is_configured() -> bool:
     settings = get_settings()
     return bool(
-        settings.smtp_host
-        and settings.smtp_from_email
-        and settings.smtp_username
-        and settings.smtp_password
+        settings.brevo_api_key
+        and settings.brevo_sender_email
+        and settings.brevo_sender_name
     )
 
 
-def _sanitized_smtp_error_message(exc: Exception) -> str:
-    if isinstance(exc, smtplib.SMTPAuthenticationError):
-        return "SMTP server rejected authentication."
-    if isinstance(exc, smtplib.SMTPConnectError):
-        return "SMTP server rejected the connection."
-    if isinstance(exc, smtplib.SMTPServerDisconnected):
-        return "SMTP server disconnected."
-    if isinstance(exc, smtplib.SMTPResponseException):
-        return "SMTP server returned an error response."
-    if isinstance(exc, smtplib.SMTPException):
-        return "SMTP delivery failed."
+def _sanitized_brevo_error_message(exc: Exception) -> str:
+    if isinstance(exc, HTTPError):
+        return "Brevo API returned an HTTP error."
+    if isinstance(exc, TimeoutError):
+        return "Brevo API request timed out."
+    if isinstance(exc, URLError):
+        return "Brevo API connection failed."
     if isinstance(exc, OSError):
-        return "Network error during SMTP delivery."
+        return "Network error during Brevo API delivery."
     if isinstance(exc, RuntimeError):
-        return "SMTP delivery is not configured."
-    return "Unexpected SMTP delivery error."
+        return "Brevo API delivery is not configured."
+    return "Unexpected Brevo API delivery error."
 
 
 def _send_password_reset_email(destination: str, raw_token: str) -> None:
     settings = get_settings()
-    if not _smtp_is_configured():
+    api_key = settings.brevo_api_key
+    sender_email = settings.brevo_sender_email
+    sender_name = settings.brevo_sender_name
+    if not api_key or not sender_email or not sender_name:
         raise RuntimeError("Password reset email delivery is not configured.")
     reset_url = f"{settings.frontend_origin.rstrip('/')}/password-reset/confirm?token={raw_token}"
-    message = EmailMessage()
-    message["Subject"] = "Reset your Laxmi Narasimha Rentals password"
-    message["From"] = settings.smtp_from_email
-    message["To"] = destination
-    message.set_content(
+    text_content = (
         "A password reset was requested for your account. "
         f"Use this link within {settings.password_reset_token_minutes} minutes:\n\n"
         f"{reset_url}\n\nIf you did not request this, you can ignore this email."
     )
-    with (
-        smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=30)
-        if settings.smtp_use_ssl
-        else smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30)
-    ) as server:
-        logger.info("Password reset SMTP connection succeeded.")
-        if not settings.smtp_use_ssl:
-            server.starttls()
-        if settings.smtp_username and settings.smtp_password:
-            server.login(settings.smtp_username, settings.smtp_password)
-            logger.info("Password reset SMTP authentication succeeded.")
-        server.send_message(message)
-        logger.info("Password reset email accepted by SMTP server.")
+    escaped_html_content = html.escape(text_content).replace("\n", "<br>")
+    html_content = f"<p>{escaped_html_content}</p>"
+    send_brevo_email(
+        api_key=api_key,
+        sender_email=sender_email,
+        sender_name=sender_name,
+        recipient=destination,
+        subject="Reset your Laxmi Narasimha Rentals password",
+        text_content=text_content,
+        html_content=html_content,
+    )
+    logger.info("Password reset email accepted by Brevo API.")
 
 
 def _deliver_password_reset_email(
@@ -218,10 +212,10 @@ def _deliver_password_reset_email(
     raw_token: str,
     request_ip: str,
 ) -> None:
-    logger.info("Password reset email delivery background task started.")
+    logger.info("Password reset email delivery background task started (Brevo API).")
     try:
         _send_password_reset_email(destination, raw_token)
-    except (OSError, smtplib.SMTPException, RuntimeError) as exc:
+    except (HTTPError, URLError, TimeoutError, OSError, RuntimeError) as exc:
         with get_session_factory()() as db:
             reset = db.get(CustomerPasswordResetToken, reset_id)
             if reset is not None and reset.consumed_at is None:
@@ -233,15 +227,15 @@ def _deliver_password_reset_email(
                     request_ip=request_ip,
                     details={
                         "error_type": type(exc).__name__,
-                        "smtp_code": getattr(exc, "smtp_code", None),
+                        "http_status": getattr(exc, "code", None),
                     },
                 )
             )
             db.commit()
         logger.warning(
-            "Password reset email delivery failed (error_type=%s, error=%s).",
+                "Password reset Brevo API delivery failed (error_type=%s, error=%s).",
             type(exc).__name__,
-            _sanitized_smtp_error_message(exc),
+            _sanitized_brevo_error_message(exc),
         )
         return
 
@@ -249,7 +243,7 @@ def _deliver_password_reset_email(
         db.add(
             AuthAuditLog(
                 user_id=user_id,
-                action="customer_password_reset_email_accepted_by_smtp",
+                action="customer_password_reset_email_accepted_by_brevo_api",
                 request_ip=request_ip,
             )
         )
@@ -509,21 +503,21 @@ def request_password_reset(
     )
     db.commit()
 
-    smtp_configured = _smtp_is_configured()
-    logger.info("Password reset SMTP configuration complete: %s", smtp_configured)
-    if not smtp_configured:
+    brevo_configured = _brevo_is_configured()
+    logger.info("Password reset Brevo API configuration complete: %s", brevo_configured)
+    if not brevo_configured:
         db.add(
             AuthAuditLog(
                 action="customer_password_reset_delivery_failed",
                 request_ip=request_ip,
                 details={
                     "email_hash": email_hash,
-                    "error_type": "SMTPNotConfigured",
+                    "error_type": "BrevoNotConfigured",
                 },
             )
         )
         db.commit()
-        logger.warning("Password reset email delivery is not configured.")
+        logger.warning("Password reset Brevo API delivery is not configured.")
         return MessageResponse(message=GENERIC_RESET_MESSAGE)
 
     user = db.scalar(

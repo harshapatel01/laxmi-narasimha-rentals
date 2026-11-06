@@ -1,9 +1,10 @@
 import base64
 import hashlib
 import hmac
-import smtplib
+import json
 import time
 from datetime import UTC, datetime, timedelta
+from urllib.error import HTTPError, URLError
 from uuid import UUID
 
 import pytest
@@ -26,6 +27,7 @@ from app.models.auth import (
     User,
 )
 from app.models.base import Base
+from app.services import brevo_email
 from app.services.security import encrypt_totp_secret, hash_token, password_hasher
 
 
@@ -75,13 +77,10 @@ def register_customer(
     return client.post("/api/v1/auth/register", json=payload, headers=request_headers)
 
 
-def configure_reset_smtp(settings, monkeypatch):
-    monkeypatch.setattr(settings, "smtp_host", "smtp.example.test")
-    monkeypatch.setattr(settings, "smtp_port", 587)
-    monkeypatch.setattr(settings, "smtp_username", "smtp-user@example.test")
-    monkeypatch.setattr(settings, "smtp_password", "test-only-smtp-password")
-    monkeypatch.setattr(settings, "smtp_from_email", "noreply@example.test")
-    monkeypatch.setattr(settings, "smtp_use_ssl", False)
+def configure_reset_brevo(settings, monkeypatch):
+    monkeypatch.setattr(settings, "brevo_api_key", "test-only-brevo-api-key")
+    monkeypatch.setattr(settings, "brevo_sender_email", "noreply@example.test")
+    monkeypatch.setattr(settings, "brevo_sender_name", "LNR test")
 
 
 def request_password_reset(client: TestClient, email: str):
@@ -310,7 +309,7 @@ def test_customer_profile_write_and_logout_still_require_csrf(client):
 
 def test_password_reset_tokens_are_one_time_and_never_returned(client, auth_test_db, monkeypatch):
     settings = get_settings()
-    configure_reset_smtp(settings, monkeypatch)
+    configure_reset_brevo(settings, monkeypatch)
     monkeypatch.setattr(auth_routes, "get_session_factory", lambda: auth_test_db)
     delivered = {}
 
@@ -359,7 +358,7 @@ def test_password_reset_tokens_are_one_time_and_never_returned(client, auth_test
 
 def test_password_reset_expired_token_is_rejected(client, auth_test_db, monkeypatch):
     settings = get_settings()
-    configure_reset_smtp(settings, monkeypatch)
+    configure_reset_brevo(settings, monkeypatch)
     monkeypatch.setattr(auth_routes, "get_session_factory", lambda: auth_test_db)
     delivered = {}
 
@@ -392,7 +391,7 @@ def test_known_unknown_and_unconfigured_reset_requests_are_generic(
     client, auth_test_db, monkeypatch
 ):
     settings = get_settings()
-    configure_reset_smtp(settings, monkeypatch)
+    configure_reset_brevo(settings, monkeypatch)
     monkeypatch.setattr(auth_routes, "get_session_factory", lambda: auth_test_db)
     delivered = []
     monkeypatch.setattr(
@@ -408,26 +407,37 @@ def test_known_unknown_and_unconfigured_reset_requests_are_generic(
     assert known.json() == unknown.json()
     assert delivered == ["customer@gmail.com"]
 
-    monkeypatch.setattr(settings, "smtp_password", None)
+    monkeypatch.setattr(settings, "brevo_api_key", None)
     unconfigured = request_password_reset(client, "customer@gmail.com")
     assert unconfigured.status_code == 202
     assert unconfigured.json() == known.json()
+    assert delivered == ["customer@gmail.com"]
+    with auth_test_db() as db:
+        failure = db.scalar(
+            select(AuthAuditLog).where(
+                AuthAuditLog.action == "customer_password_reset_delivery_failed"
+            )
+        )
+        assert failure is not None
+        assert failure.details["error_type"] == "BrevoNotConfigured"
 
 
-def test_password_reset_smtp_failure_is_generic_and_revokes_undelivered_token(
+def test_password_reset_brevo_api_failure_is_generic_and_revokes_undelivered_token(
     client, auth_test_db, monkeypatch, caplog
 ):
     settings = get_settings()
-    configure_reset_smtp(settings, monkeypatch)
+    configure_reset_brevo(settings, monkeypatch)
     monkeypatch.setattr(auth_routes, "get_session_factory", lambda: auth_test_db)
     registered = register_customer(client)
 
     def fail_send(destination: str, raw_token: str):
-        error = (
-            f"authentication failed for {destination}; "
-            f"password={settings.smtp_password}; token={raw_token}"
+        raise HTTPError(
+            f"https://api.brevo.com/v3/smtp/email?token={raw_token}",
+            401,
+            f"rejected {destination} {settings.brevo_api_key}",
+            None,
+            None,
         )
-        raise smtplib.SMTPAuthenticationError(535, error.encode())
 
     monkeypatch.setattr(auth_routes, "_send_password_reset_email", fail_send)
     response = request_password_reset(client, "customer@gmail.com")
@@ -437,14 +447,16 @@ def test_password_reset_smtp_failure_is_generic_and_revokes_undelivered_token(
     assert response.json() == {"message": auth_routes.GENERIC_RESET_MESSAGE}
     assert unknown_response.status_code == response.status_code
     assert unknown_response.json() == response.json()
-    assert "Password reset email delivery failed" in caplog.text
-    assert "SMTPAuthenticationError" in caplog.text
-    assert "SMTP server rejected authentication." in caplog.text
-    assert settings.smtp_username not in caplog.text
-    assert settings.smtp_password not in caplog.text
+    assert "Password reset Brevo API delivery failed" in caplog.text
+    assert "HTTPError" in caplog.text
+    assert "Brevo API returned an HTTP error." in caplog.text
+    assert settings.brevo_api_key not in caplog.text
+    assert settings.brevo_sender_email not in caplog.text
+    assert settings.brevo_sender_name not in caplog.text
     assert "customer@gmail.com" not in caplog.text
-    assert "authentication failed" not in caplog.text
+    assert "rejected" not in caplog.text
     assert "token=" not in caplog.text
+    assert "/password-reset/confirm" not in caplog.text
     with auth_test_db() as db:
         reset = db.scalar(select(CustomerPasswordResetToken))
         failure = db.scalar(
@@ -455,8 +467,8 @@ def test_password_reset_smtp_failure_is_generic_and_revokes_undelivered_token(
         assert reset is not None and reset.consumed_at is not None
         assert failure is not None
         assert failure.details == {
-            "error_type": "SMTPAuthenticationError",
-            "smtp_code": 535,
+            "error_type": "HTTPError",
+            "http_status": 401,
         }
 
     assert registered.status_code == 201
@@ -466,7 +478,7 @@ def test_password_reset_per_ip_limit_counts_failed_deliveries(
     client, auth_test_db, monkeypatch
 ):
     settings = get_settings()
-    configure_reset_smtp(settings, monkeypatch)
+    configure_reset_brevo(settings, monkeypatch)
     monkeypatch.setattr(settings, "password_reset_ip_limit", 2)
     monkeypatch.setattr(settings, "password_reset_email_limit", 10)
     monkeypatch.setattr(auth_routes, "get_session_factory", lambda: auth_test_db)
@@ -474,7 +486,7 @@ def test_password_reset_per_ip_limit_counts_failed_deliveries(
 
     def fail_send(destination: str, _raw_token: str):
         calls.append(destination)
-        raise smtplib.SMTPException("test provider failure")
+        raise URLError("test provider failure")
 
     monkeypatch.setattr(auth_routes, "_send_password_reset_email", fail_send)
     assert register_customer(client).status_code == 201
@@ -503,7 +515,7 @@ def test_password_reset_per_email_limit_is_shared_across_ips(
     client, auth_test_db, monkeypatch
 ):
     settings = get_settings()
-    configure_reset_smtp(settings, monkeypatch)
+    configure_reset_brevo(settings, monkeypatch)
     monkeypatch.setattr(settings, "password_reset_ip_limit", 10)
     monkeypatch.setattr(settings, "password_reset_email_limit", 2)
     monkeypatch.setattr(auth_routes, "get_session_factory", lambda: auth_test_db)
@@ -536,14 +548,11 @@ def test_password_reset_per_email_limit_is_shared_across_ips(
         assert all(row.details == {"email_hash": expected_email_hash} for row in attempts)
 
 
-def test_brevo_smtp_transport_uses_separate_smtp_credentials(monkeypatch):
-    settings = get_settings()
-    configure_reset_smtp(settings, monkeypatch)
+def test_shared_brevo_email_helper_posts_transactional_payload(monkeypatch):
     observed = {}
 
-    class FakeSMTP:
-        def __init__(self, host, port, timeout):
-            observed.update(host=host, port=port, timeout=timeout)
+    class FakeResponse:
+        status = 201
 
         def __enter__(self):
             return self
@@ -551,76 +560,81 @@ def test_brevo_smtp_transport_uses_separate_smtp_credentials(monkeypatch):
         def __exit__(self, *_args):
             return False
 
-        def starttls(self):
-            observed["starttls"] = True
+    def fake_urlopen(request, timeout):
+        observed["url"] = request.full_url
+        observed["headers"] = request.headers
+        observed["payload"] = json.loads(request.data)
+        observed["timeout"] = timeout
+        return FakeResponse()
 
-        def login(self, username, password):
-            observed["login"] = (username, password)
+    monkeypatch.setattr(brevo_email, "urlopen", fake_urlopen)
+    brevo_email.send_brevo_email(
+        api_key="test-api-key",
+        sender_email="sender@example.test",
+        sender_name="LNR test",
+        recipient="recipient@example.test",
+        subject="Test subject",
+        text_content="Test text",
+        html_content="<p>Test text</p>",
+    )
 
-        def send_message(self, message):
-            observed["message"] = message
-
-    monkeypatch.setattr(auth_routes.smtplib, "SMTP", FakeSMTP)
-    auth_routes._send_password_reset_email("customer@example.test", "random-token")
-
-    assert observed["host"] == "smtp.example.test"
-    assert observed["port"] == 587
-    assert observed["timeout"] == 30
-    assert observed["starttls"] is True
-    assert observed["login"] == ("smtp-user@example.test", "test-only-smtp-password")
-    assert observed["message"]["To"] == "customer@example.test"
+    assert observed["url"] == "https://api.brevo.com/v3/smtp/email"
+    assert observed["headers"]["Api-key"] == "test-api-key"
+    assert observed["timeout"] == 10
+    assert observed["payload"] == {
+        "sender": {"name": "LNR test", "email": "sender@example.test"},
+        "to": [{"email": "recipient@example.test"}],
+        "subject": "Test subject",
+        "textContent": "Test text",
+        "htmlContent": "<p>Test text</p>",
+    }
 
 
-def test_password_reset_smtp_diagnostics_do_not_log_sensitive_values(
+def test_password_reset_brevo_api_delivery_preserves_content_and_redacts_logs(
     client, auth_test_db, monkeypatch, caplog
 ):
     settings = get_settings()
-    configure_reset_smtp(settings, monkeypatch)
-    monkeypatch.setattr(settings, "smtp_username", "smtp-credential-secret")
-    monkeypatch.setattr(settings, "smtp_password", "smtp-password-secret")
-    monkeypatch.setattr(settings, "smtp_from_email", "sender-private@example.test")
+    configure_reset_brevo(settings, monkeypatch)
     monkeypatch.setattr(auth_routes, "get_session_factory", lambda: auth_test_db)
-    sent_messages = []
-
-    class FakeSMTP:
-        def __init__(self, _host, _port, timeout):
-            assert timeout == 30
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return False
-
-        def starttls(self):
-            return None
-
-        def login(self, _username, _password):
-            return None
-
-        def send_message(self, message):
-            sent_messages.append(message)
-
-    monkeypatch.setattr(auth_routes.smtplib, "SMTP", FakeSMTP)
+    api_calls = []
+    monkeypatch.setattr(
+        auth_routes,
+        "send_brevo_email",
+        lambda **kwargs: api_calls.append(kwargs),
+    )
     caplog.set_level("INFO", logger=auth_routes.__name__)
     assert register_customer(client).status_code == 201
 
     response = request_password_reset(client, "customer@gmail.com")
 
     assert response.status_code == 202
-    assert len(sent_messages) == 1
-    body = sent_messages[0].get_content()
-    reset_token = body.split("token=", 1)[1].split()[0]
-    assert "Password reset SMTP configuration complete: True" in caplog.text
-    assert "Password reset email delivery background task started." in caplog.text
-    assert "Password reset SMTP connection succeeded." in caplog.text
-    assert "Password reset SMTP authentication succeeded." in caplog.text
-    assert "Password reset email accepted by SMTP server." in caplog.text
-    assert "smtp-credential-secret" not in caplog.text
-    assert "smtp-password-secret" not in caplog.text
-    assert "sender-private@example.test" not in caplog.text
+    assert len(api_calls) == 1
+    email = api_calls[0]
+    reset_url = email["text_content"].split("\n\n")[1].split("\n\n")[0]
+    reset_token = reset_url.split("token=", 1)[1]
+    assert email["api_key"] == settings.brevo_api_key
+    assert email["sender_email"] == settings.brevo_sender_email
+    assert email["sender_name"] == settings.brevo_sender_name
+    assert email["recipient"] == "customer@gmail.com"
+    assert email["subject"] == "Reset your Laxmi Narasimha Rentals password"
+    assert f"Use this link within {settings.password_reset_token_minutes} minutes:" in email[
+        "text_content"
+    ]
+    assert reset_url in email["html_content"]
+    assert "Password reset Brevo API configuration complete: True" in caplog.text
+    assert "Password reset email delivery background task started (Brevo API)." in caplog.text
+    assert "Password reset email accepted by Brevo API." in caplog.text
+    assert settings.brevo_api_key not in caplog.text
+    assert settings.brevo_sender_email not in caplog.text
     assert "customer@gmail.com" not in caplog.text
     assert reset_token not in caplog.text
+    with auth_test_db() as db:
+        accepted = db.scalar(
+            select(AuthAuditLog).where(
+                AuthAuditLog.action == "customer_password_reset_email_accepted_by_brevo_api"
+            )
+        )
+        assert accepted is not None
 
 
 

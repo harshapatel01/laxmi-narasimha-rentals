@@ -1,9 +1,7 @@
 import html
-import json
 import re
 from datetime import UTC, datetime
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, update
@@ -11,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import get_settings
 from app.models.auth import User
+from app.services.brevo_email import send_brevo_email as _send_brevo_email
 from app.models.bookings import (
     Booking,
     BookingEmailJob,
@@ -76,38 +75,6 @@ def create_booking_email_jobs(
                 status="pending",
             )
         )
-
-
-def _send_brevo_email(
-    *,
-    api_key: str,
-    sender_email: str,
-    sender_name: str,
-    recipient: str,
-    subject: str,
-    text_content: str,
-    html_content: str,
-) -> None:
-    payload = {
-        "sender": {"name": sender_name, "email": sender_email},
-        "to": [{"email": recipient}],
-        "subject": subject,
-        "textContent": text_content,
-        "htmlContent": html_content,
-    }
-    request = Request(
-        "https://api.brevo.com/v3/smtp/email",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "accept": "application/json",
-            "api-key": api_key,
-            "content-type": "application/json",
-        },
-        method="POST",
-    )
-    with urlopen(request, timeout=10) as response:
-        if not 200 <= response.status < 300:
-            raise URLError(f"Brevo returned HTTP {response.status}.")
 
 
 def _is_valid_email_address(value: str | None) -> bool:
